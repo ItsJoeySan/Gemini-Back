@@ -15,7 +15,7 @@ const prisma = new PrismaClient();
 app.use(
   cors({
     origin: "http://localhost:5173",
-    Credential: true,
+    credentials: true,
   })
 );
 
@@ -38,10 +38,10 @@ app.use(
   })
 );
 
+//initialize passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use(passport.authenticate("session"));
 passport.use(
   new GoogleStrategy(
     {
@@ -49,13 +49,14 @@ passport.use(
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: "http://localhost:3000/auth/google/callback",
     },
-    async (accessToken, refreshToken, profile, done) => {
-      console.log("profile data: " + JSON.stringify(profile, null, 2));
 
+    //here we are getting user data on profile
+    async (accessToken, refreshToken, profile, done) => {
       try {
         let user = await prisma.user.findFirst({
           where: { googleId: profile.id },
         });
+
         if (!user) {
           user = await prisma.user.create({
             data: {
@@ -66,45 +67,42 @@ passport.use(
             },
           });
         }
-        console.log("USer:" + JSON.stringify(user, null, 2));
         return done(null, user);
       } catch (error) {
-        done(error, null);
+        return done(error, null);
       }
     }
   )
 );
 
+//we are using this so that when user logs in his user id store in the session
 passport.serializeUser((user, done) => {
-  console.log(JSON.stringify("serial: ", user));
-  done(null, user);
+  return done(null, user.id);
 });
 
-passport.deserializeUser(async (user, done) => {
+//we are using this so that when we have to check if the user in the session is same as the user in db
+passport.deserializeUser(async (id, done) => {
   try {
-    const existingUser = await prisma.user.findUnique({
-      where: { id: user.id },
+    const user = await prisma.user.findUnique({
+      where: { id },
     });
-    console.log("user from deserializeUser: ", existingUser);
     if (user) {
-      done(null, user);
+      return done(null, user);
     } else {
-      done(null, false);
+      return done(null, false);
     }
   } catch (error) {
-    done(error, null);
+    return done(error, null);
   }
 });
 
+//Route to initiate Google OAuth
 app.get(
   "/auth/google",
-  passport.authenticate("google", { scope: ["profile", "email"] }),
-  (req, res) => {
-    res.redirect("http://localhost:5173");
-  }
+  passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-//without it google can't redirect us back to our website
+//Google OAuth callback Route
 app.get(
   "/auth/google/callback",
   passport.authenticate("google", {
@@ -125,12 +123,12 @@ app.get("/login/success", async (req, res) => {
   }
 });
 
-app.get("/login/failed", async (req, res) => {
-  res.status(401).json({
-    success: false,
-    message: "failure",
-  });
-});
+// app.get("/login/failed", async (req, res) => {
+//   res.status(401).json({
+//     success: false,
+//     message: "failure",
+//   });
+// });
 
 //this is where we will redirect when we click on "continue with google"
 app.get("/logout", (req, res) => {
@@ -138,20 +136,11 @@ app.get("/logout", (req, res) => {
   res.redirect(CLIENT_URL);
 });
 
-//this is where we will redirect when we click on "continue with google"
-// app.use("/auth", authRouter);
-
-//without it google can't redirect us back to our website
-const isAuthenticated = async (req, res, next) => {
-  console.log("from145", req.user);
-  if (req.user) {
-    return next();
+app.post("/user/post", async (req, res) => {
+  // console.log("body: ", await req.isAuthenticated());
+  if (req.isAuthenticated()) {
+    console.log("Yes", req.body);
   }
-  res.status(401).json({ message: "User is not authenticated" });
-};
-
-app.post("/user/post", isAuthenticated, async (req, res) => {
-  console.log("body: ", await req.body);
   res.send("okay");
 });
 
