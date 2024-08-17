@@ -9,12 +9,13 @@ import { PrismaClient } from "@prisma/client";
 
 const app = express();
 
-const CLIENT_URL = "http://localhost:5173/";
+const CLIENT_URL = process.env.CLIENT_URL;
+const port = process.env.PORT;
 const prisma = new PrismaClient();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: CLIENT_URL,
     credentials: true,
   })
 );
@@ -47,7 +48,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:3000/auth/google/callback",
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
 
     //here we are getting user data on profile
@@ -108,7 +109,7 @@ app.get(
   passport.authenticate("google", {
     successRedirect: CLIENT_URL,
     //if authentication failed we will redirect them to login route
-    failureRedirect: "http://localhost:5173/login", //add a login route here
+    failureRedirect: CLIENT_URL, //add a login route here
     failureFlash: true,
   })
 );
@@ -136,14 +137,48 @@ app.get("/logout", (req, res) => {
   res.redirect(CLIENT_URL);
 });
 
-app.post("/user/post", async (req, res) => {
-  // console.log("body: ", await req.isAuthenticated());
-  if (req.isAuthenticated()) {
-    console.log("Yes", req.body);
-  }
-  res.send("okay");
+app.use("/user/post", (req, res, next) => {
+  req.isAuthenticated();
+  next();
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
+app.post("/user/post", async (req, res) => {
+  //req.body.input is coming from frontend
+  await prisma.prompt.create({
+    data: {
+      prompt: req.body.input,
+      author: {
+        connect: {
+          id: req.user.id,
+        },
+      },
+    },
+  });
+  res.status(201).json({
+    success: true,
+    message: "Successfull",
+  });
+});
+
+//middleware to check if user is authenticated or not
+app.use("/posts", (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+});
+
+//if user authenticated we will search all the prompt he send
+app.get("/posts", async (req, res) => {
+  const allPrompt = await prisma.prompt.findMany({
+    where: {
+      authorId: req.user.id,
+    },
+  });
+
+  res.json(allPrompt);
+});
+
+app.listen(port, () => {
+  console.log(`Server is running on ${port}`);
 });
