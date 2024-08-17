@@ -8,7 +8,7 @@
     "dev": "nodemon app.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "ItsJoey",
   "license": "ISC",
   "description": "",
   "dependencies": {
