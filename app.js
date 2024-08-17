@@ -179,6 +179,10 @@ app.get("/posts", async (req, res) => {
   res.json(allPrompt);
 });
 
+app.get("/", (req, res) => {
+  res.send("Congrats");
+});
+
 app.listen(port, () => {
   console.log(`Server is running on ${port}`);
 });
