@@ -17,6 +17,7 @@ app.use(
   cors({
     origin: CLIENT_URL,
     credentials: true,
+    method: ["GET", "PUT", "POST", "DELETE"],
   })
 );
 
