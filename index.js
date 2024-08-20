@@ -10,14 +10,14 @@ import { PrismaClient } from "@prisma/client";
 const app = express();
 
 const CLIENT_URL = process.env.CLIENT_URL;
-const port = process.env.PORT;
+const PORT = process.env.PORT || 8080;
 const prisma = new PrismaClient();
 
 app.use(
   cors({
     origin: CLIENT_URL,
     credentials: true,
-    method: ["GET", "PUT", "POST", "DELETE"],
+    methods: ["GET", "PUT", "POST", "DELETE"],
   })
 );
 
@@ -143,6 +143,11 @@ app.use("/user/post", (req, res, next) => {
   next();
 });
 
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send("Something broke!");
+});
+
 app.post("/user/post", async (req, res) => {
   //req.body.input is coming from frontend
   await prisma.prompt.create({
@@ -188,6 +193,6 @@ app.get("/test", (req, res) => {
   res.send("test successful!");
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on ${port}`);
+app.listen(PORT, () => {
+  console.log(`Server is running on ${PORT}`);
 });
